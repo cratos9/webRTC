@@ -5,22 +5,23 @@
   <title>Videollamada Flask + WebRTC</title>
 </head>
 <body>
-  <h1>Videollamada en tiempo real 🔥</h1>
+  <h1>Videollamada 🔥</h1>
+
   <div>
     <video id="localVideo" autoplay muted playsinline></video>
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
-  <br>
-  <button id="startBtn" onclick="createOffer()">Iniciar llamada</button>
+
+  <button id="startBtn" onclick="createOffer()">Iniciar</button>
   <button id="hangupBtn" onclick="colgar()" disabled>Colgar</button>
 
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 
   <style>
-    body { text-align: center; background: #111; color: #eee; font-family: sans-serif; }
-    video { width: 45%; border: 3px solid #e33; border-radius: 10px; margin: 5px; }
-    button { padding: 10px 20px; background: #e33; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+    body { text-align: center; background: #121212; color: #eee; }
+    video { width: 45%; border: 3px solid #e33; border-radius: 10px; }
+    button { padding: 10px 20px; margin: 10px; background: #e33; color: white; border: none; border-radius: 8px; }
     button:hover { background: #c22; }
   </style>
 </body>
