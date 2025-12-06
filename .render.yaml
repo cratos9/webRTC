@@ -1,8 +1,8 @@
 services:
   - type: web
-    name: your-service-name
+    name: webrtc-app
     env: python
     runtime: python
     buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
-    startCommand: "your-start-command"
+    startCommand: "hypercorn app:app --bind 0.0.0.0:$PORT --workers 1 --log-level info"
     pythonVersion: 3.12.3
