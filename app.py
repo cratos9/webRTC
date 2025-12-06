@@ -1,77 +1,84 @@
-from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from quart import Quart, render_template, request
+import socketio
 import logging
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Crear aplicación Quart (compatible async con Python 3.13)
+app = Quart(__name__)
 app.config['SECRET_KEY'] = 'tu-secret-key-aqui'
 
-# Configuración para producción con eventlet
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*",
-    async_mode='eventlet',
+# Crear servidor Socket.IO con modo ASGI (sin gevent/eventlet)
+sio = socketio.AsyncServer(
+    async_mode='asgi',
+    cors_allowed_origins='*',
     logger=True,
     engineio_logger=True,
     ping_timeout=60,
     ping_interval=25
 )
 
+# Wrap Quart app con Socket.IO
+app = socketio.ASGIApp(sio, app)
+
 # Diccionario para rastrear clientes conectados
 connected_clients = {}
 
 @app.route('/')
-def index():
-    return render_template('index.html')
+async def index():
+    return await render_template('index.html')
 
-@socketio.on('connect')
-def handle_connect():
-    client_id = request.sid
-    connected_clients[client_id] = True
-    logger.info(f'✅ Cliente conectado: {client_id}')
+@sio.event
+async def connect(sid, environ):
+    connected_clients[sid] = True
+    logger.info(f'✅ Cliente conectado: {sid}')
     logger.info(f'📊 Total de clientes conectados: {len(connected_clients)}')
     
     # Notificar a todos cuántos están conectados
-    emit('user_count', {'count': len(connected_clients)}, broadcast=True)
+    await sio.emit('user_count', {'count': len(connected_clients)})
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    client_id = request.sid
-    if client_id in connected_clients:
-        del connected_clients[client_id]
-    logger.info(f'❌ Cliente desconectado: {client_id}')
+@sio.event
+async def disconnect(sid):
+    if sid in connected_clients:
+        del connected_clients[sid]
+    logger.info(f'❌ Cliente desconectado: {sid}')
     logger.info(f'📊 Total de clientes conectados: {len(connected_clients)}')
     
     # Notificar desconexión
-    emit('user_disconnected', {'sid': client_id}, broadcast=True, include_self=False)
-    emit('user_count', {'count': len(connected_clients)}, broadcast=True)
+    await sio.emit('user_disconnected', {'sid': sid}, skip_sid=sid)
+    await sio.emit('user_count', {'count': len(connected_clients)})
 
-@socketio.on('message')
-def handle_message(data):
-    client_id = request.sid
-    logger.info(f'📨 Mensaje recibido de {client_id}: {list(data.keys())}')
+@sio.event
+async def message(sid, data):
+    logger.info(f'📨 Mensaje recibido de {sid}: {list(data.keys())}')
     
     # Registrar tipo de mensaje
     if 'offer' in data:
-        logger.info(f'🔵 OFFER recibido de {client_id}')
+        logger.info(f'🔵 OFFER recibido de {sid}')
     elif 'answer' in data:
-        logger.info(f'🟢 ANSWER recibido de {client_id}')
+        logger.info(f'🟢 ANSWER recibido de {sid}')
     elif 'iceCandidate' in data:
-        logger.info(f'🧊 ICE Candidate recibido de {client_id}')
+        logger.info(f'🧊 ICE Candidate recibido de {sid}')
     elif 'hangup' in data:
-        logger.info(f'📞 HANGUP recibido de {client_id}')
+        logger.info(f'📞 HANGUP recibido de {sid}')
     
     # Reenviar a todos excepto al emisor
-    emit('message', data, broadcast=True, include_self=False)
+    await sio.emit('message', data, skip_sid=sid)
     logger.info(f'📤 Mensaje reenviado a otros clientes')
 
-@socketio.on('error')
-def handle_error(e):
-    logger.error(f'❗ Error en socket: {str(e)}')
+@sio.event
+async def error(sid, e):
+    logger.error(f'❗ Error en socket {sid}: {str(e)}')
 
 if __name__ == '__main__':
+    import hypercorn.asyncio
+    import hypercorn.config
+    
+    config = hypercorn.config.Config()
+    config.bind = ["0.0.0.0:5000"]
     logger.info("🚀 Servidor corriendo en http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    
+    import asyncio
+    asyncio.run(hypercorn.asyncio.serve(app, config))

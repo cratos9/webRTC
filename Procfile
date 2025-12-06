@@ -1,1 +1,1 @@
-web: gunicorn --worker-class eventlet --workers 1 --bind 0.0.0.0:$PORT --timeout 120 --log-level info app:socketio
+web: hypercorn app:app --bind 0.0.0.0:$PORT --workers 1 --log-level info
