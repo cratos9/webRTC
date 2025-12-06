@@ -9,11 +9,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tu-secret-key-aqui'
 
-# Configuración para producción con gevent
+# Configuración para producción con eventlet
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
-    async_mode='gevent',
+    async_mode='eventlet',
     logger=True,
     engineio_logger=True,
     ping_timeout=60,
